@@ -379,13 +379,19 @@ int process_command(struct command_t *command)
 		command->args[command->arg_count - 1] = NULL;
 
 		/// TODO: do your own exec with path resolving using execv()
-
+		
+		char path[1024] = "/bin/";
+		strcat(path,command->name);
+		command->args[0] = strdup(path);
+		execv(path,command->args);
 		exit(0);
 	}
 	else
 	{
 		/// TODO: Wait for child to finish if command is not running in background
-
+		if(command->args[command->arg_count-2] == "&") {
+			wait(NULL);
+		}
 		return SUCCESS;
 	}
 
