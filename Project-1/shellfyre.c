@@ -6,7 +6,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <dirent.h>
 const char *sysname = "shellfyre";
+
+//Declaration of recursive fileSearch function
+void fileSearch(char *keyword, char *current_dir, int recursive, int open);
 
 enum return_codes
 {
@@ -360,7 +365,52 @@ int process_command(struct command_t *command)
 	}
 
 	// TODO: Implement your custom commands here
+	
+	//fileserach command
+	if(strcmp(command->name, "filesearch") == 0) {
 
+		int recursive = 0;
+		int open = 0;
+		char keyword[30];
+
+		if(command->args[0] == NULL) {
+
+			printf("Usage: filesearch 'keyword'. Options: -r, -o");
+			return SUCCESS;
+		}
+		//Assigning command line options to open and recursive variables
+		else if (strcmp(command->args[0],"-r") == 0) {
+			recursive = 1;
+			
+			if(strcmp(command->args[1], "-o") == 0) {
+				open = 1;
+				strcpy(keyword, command->args[2]);
+			}
+			else {
+				strcpy(keyword, command->args[1]);
+			}
+		}
+		else if (strcmp(command->args[0],"-o") == 0) {
+				open = 1;
+
+			if(strcmp(command->args[1], "-r") == 0) {
+				recursive = 1;
+				strcpy(keyword, command->args[2]);
+			}
+			else {
+				strcpy(keyword, command->args[1]);
+			}
+		}
+		else {
+			strcpy(keyword, command->args[0]);
+		}
+		//////////////////////////////////////////////////////////////////
+		
+		//Calling fileSearch function with inputs keyword, current dir (.),and options recursive and open
+		fileSearch(keyword,".", recursive, open);
+		return SUCCESS;	
+	}
+	
 	pid_t pid = fork();
 
 	if (pid == 0) // child
@@ -395,4 +445,70 @@ int process_command(struct command_t *command)
 
 	printf("-%s: %s: command not found\n", sysname, command->name);
 	return UNKNOWN;
+}
+
+/**
+  *Finds the files named "keyword" in given directory 
+  * @param keyword
+  * @param current_dir
+  * @paran recursive
+  * @param open
+  * */
+void fileSearch(char *keyword, char *current_dir,int recursive, int open) {
+    
+	struct dirent *dir;
+	DIR *d = opendir(current_dir);
+	char next_dir[512];
+	char directory[512];
+
+
+	if(d != NULL) {
+		while((dir = readdir(d)) != NULL) {
+		    
+		    //If it is current or previous directory then ignore otherwise creates infinite loop
+			if(strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0) {			
+
+				if(strstr(dir->d_name,keyword)) {
+	
+					printf("%s/%s\n",current_dir,dir->d_name);
+
+					if (open) {
+
+						strcpy(directory,current_dir);
+						strcat(directory,"/");
+						strcat(directory,dir->d_name);
+						printf("Directory: %s\n",directory);
+						printf("Current DÄ°rectory: %s\n",current_dir);
+						
+						//Calling xdg-open in the child
+						
+						char *path = "/bin/xdg-open";
+						char *args[] = {path,directory,NULL};
+						pid_t pid = fork();
+
+						if(pid == 0) {
+
+							execv(path, args);
+						}
+						else {
+							wait(NULL);
+						}
+						///////////////////////////////////
+					}
+				}
+				//Next_dir resolving and calling recursively
+				if(recursive) {
+					strcpy(next_dir,current_dir);
+					strcat(next_dir,"/");
+					strcat(next_dir,dir->d_name);
+					fileSearch(keyword, next_dir,recursive,open);
+
+				}
+
+			}
+				
+		}
+		closedir(d);
+	}
+	return;	
 }
