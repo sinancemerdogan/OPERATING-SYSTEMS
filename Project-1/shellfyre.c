@@ -13,6 +13,19 @@ const char *sysname = "shellfyre";
 //Declaration of recursive fileSearch function
 void fileSearch(char *keyword, char *current_dir, int recursive, int open);
 
+//Declaration of cdh command helper functions
+void printCdHistory(char *cdHistory[]);
+void addCdToHistory(char *cd);
+void writeToCdhFile();
+void readFromCdhFile();
+
+//Fixed sized string array (list) for keeping directory history
+char *cdHistory[10];
+//Index for reaching elements of the history list
+int cdCount = 0;
+//Path to directory in which shellfyre exist
+char pathToShellfyre[512];
+
 enum return_codes
 {
 	SUCCESS = 0,
@@ -360,6 +373,17 @@ int process_command(struct command_t *command)
 			r = chdir(command->args[0]);
 			if (r == -1)
 				printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+			
+			//Upon changing directory, add the current directory to chHistory for cdh command
+			else {
+			
+				char cwd[512];
+				if(getcwd(cwd,sizeof(cwd)) != NULL) {
+					addCdToHistory(cwd);
+				}
+			
+			}
+			/////////////////
 			return SUCCESS;
 		}
 	}
@@ -409,6 +433,58 @@ int process_command(struct command_t *command)
 		//Calling fileSearch function with inputs keyword, current dir (.),and options recursive and open
 		fileSearch(keyword,".", recursive, open);
 		return SUCCESS;	
+	}
+	//cdh command
+	if(strcmp(command->name, "cdh") == 0) {
+
+		if(command->arg_count > 0) {
+			printf("cdh: Works with zero arguments.\n");
+			return SUCCESS;
+		}
+
+		else if(cdCount == 0) {
+			printf("No previous directories to select from!\n");
+			return SUCCESS;
+		}
+
+		printCdHistory(cdHistory);
+
+
+		char selected_dir[100];
+		char selected_dir_main[100];
+		pid_t pid;
+		int pipefds[2];
+		
+		if(pipe(pipefds) == -1) {
+
+			printf("Pipe failed!\n");
+		}
+
+		pid = fork();
+
+		if(pid == 0) {
+
+			printf("Select a directory by letter or number: ");
+			scanf("%s",selected_dir);
+
+			close(pipefds[0]);
+			write(pipefds[1],selected_dir,(strlen(selected_dir)+1));
+			exit(0);
+
+		}
+		else {
+			wait(NULL);
+
+			close(pipefds[1]);
+			read(pipefds[0],selected_dir_main,sizeof(selected_dir_main));
+
+			int index = atoi(selected_dir_main);	
+			
+			r = chdir(cdHistory[cdCount - index]);
+			if (r == -1)
+                		printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+		}
+		return SUCCESS;
 	}
 	
 	pid_t pid = fork();
