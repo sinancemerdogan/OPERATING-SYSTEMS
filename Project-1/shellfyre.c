@@ -459,6 +459,41 @@ int process_command(struct command_t *command)
 
 			printf("Pipe failed!\n");
 		}
+		//take command
+		if(strcmp(command->name, "take") == 0) {
+	
+		int r1,r2;
+		if(command->arg_count > 1) {
+			printf("take: Too many arguments.");
+			printf("Usage: take [DIRECTORY]");
+			return SUCCESS;
+		}
+		//Tokenizing the argument of take command
+		char *input = strdup(command->args[0]);
+		char *token = strtok(input, "/");
+		
+		//for each token 
+		while( token != NULL ) {
+		    
+		    //make directory named token
+			r1 = mkdir(token, S_IRWXU);
+			if(r1 == -1) {
+				if(errno != EEXIST) {
+
+					printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+					return SUCCESS;
+				}
+			}
+			//change directory to token
+			r2 = chdir(token);
+			if (r2 == -1) {
+				printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+				return SUCCESS;
+				}
+			token = strtok(NULL, "/");
+		}
+		return SUCCESS;
+	}
 
 		pid = fork();
 
