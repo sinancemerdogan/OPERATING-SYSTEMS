@@ -449,7 +449,6 @@ int process_command(struct command_t *command)
 
 		printCdHistory(cdHistory);
 
-
 		char selected_dir[100];
 		char selected_dir_main[100];
 		pid_t pid;
@@ -459,41 +458,6 @@ int process_command(struct command_t *command)
 
 			printf("Pipe failed!\n");
 		}
-		//take command
-		if(strcmp(command->name, "take") == 0) {
-	
-		int r1,r2;
-		if(command->arg_count > 1) {
-			printf("take: Too many arguments.");
-			printf("Usage: take [DIRECTORY]");
-			return SUCCESS;
-		}
-		//Tokenizing the argument of take command
-		char *input = strdup(command->args[0]);
-		char *token = strtok(input, "/");
-		
-		//for each token 
-		while( token != NULL ) {
-		    
-		    //make directory named token
-			r1 = mkdir(token, S_IRWXU);
-			if(r1 == -1) {
-				if(errno != EEXIST) {
-
-					printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
-					return SUCCESS;
-				}
-			}
-			//change directory to token
-			r2 = chdir(token);
-			if (r2 == -1) {
-				printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
-				return SUCCESS;
-				}
-			token = strtok(NULL, "/");
-		}
-		return SUCCESS;
-	}
 
 		pid = fork();
 
@@ -513,11 +477,54 @@ int process_command(struct command_t *command)
 			close(pipefds[1]);
 			read(pipefds[0],selected_dir_main,sizeof(selected_dir_main));
 
+
+			if(strcmp(selected_dir_main, "a") == 0) {
+				strcpy(selected_dir_main, "1");
+			}
+			else if (strcmp(selected_dir_main, "b") == 0) {
+				strcpy(selected_dir_main, "2");
+			}
+			else if (strcmp(selected_dir_main, "c") == 0) {
+				strcpy(selected_dir_main, "3");
+			}
+			else if (strcmp(selected_dir_main, "d") == 0) {
+				strcpy(selected_dir_main, "4");
+			}
+			else if (strcmp(selected_dir_main, "e") == 0) {
+				strcpy(selected_dir_main, "5");
+			}
+			else if (strcmp(selected_dir_main, "f") == 0) {
+				strcpy(selected_dir_main, "6");
+			}
+			else if (strcmp(selected_dir_main, "g") == 0) {
+				strcpy(selected_dir_main, "7");
+			}
+			else if (strcmp(selected_dir_main, "h") == 0) {
+				strcpy(selected_dir_main, "8");
+			}
+			else if (strcmp(selected_dir_main, "i") == 0) {
+				strcpy(selected_dir_main, "9");
+			}
+			else if (strcmp(selected_dir_main, "j") == 0) {
+				strcpy(selected_dir_main, "10");
+			}
+
 			int index = atoi(selected_dir_main);	
 			
 			r = chdir(cdHistory[cdCount - index]);
-			if (r == -1)
-                		printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+			if (r == -1) {
+				printf("Please provide a valid number or letter!\n");
+			}
+			else {
+			
+				char cwd[512];
+				if(getcwd(cwd,sizeof(cwd)) != NULL) {
+					addCdToHistory(cwd);
+				}
+			
+			}
+
+
 		}
 		return SUCCESS;
 	}
