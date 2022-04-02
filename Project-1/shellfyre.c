@@ -722,3 +722,79 @@ void fileSearch(char *keyword, char *current_dir,int recursive, int open) {
 	}
 	return;	
 }
+/**
+  * Adds given directory to cdHistory list 
+  * @param cd 
+  * */
+void addCdToHistory(char *cd) {
+
+	if(cdCount < 10) {
+
+		cdHistory[cdCount] = strdup(cd);
+		cdCount++;
+	}
+	else {
+		free(cdHistory[0]);
+		for(int i = 1; i < 10; i++) {
+			cdHistory[i - 1] = cdHistory[i];
+			
+		}
+		cdHistory[9] = strdup(cd);
+	}
+}
+/**
+  * Prints the recenlty visited directories for a given list 
+  * @param cdHistory[]
+  * */
+void printCdHistory(char *cdHistory[]) {
+	char letters[10] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'};
+	for(int i = 0; i < cdCount; i++) {
+       		printf("%c %d) %s\n",letters[cdCount-i-1], cdCount-i, cdHistory[i]);
+        }
+	
+
+}
+/**
+  * Writes the content of the cdHistory to the file 
+  * */
+void writeToCdhFile() {
+	FILE *fp; 
+	fp = fopen("cdhFile","w+");
+	if(fp == NULL) {
+		printf("Could not open the cdhFile!\n");
+	}
+
+	for(int i = 0; i < 10; i++) {
+		if(cdHistory[i] != NULL)
+			fprintf(fp, "%s\n",cdHistory[i]);
+		else
+			break;
+	}
+	fclose(fp);
+
+}
+/**
+  * Reads the content of the cdHistory to the file 
+  * */
+void readFromCdhFile() {
+
+	if(access("cdhFile", F_OK) != 0) {
+		return;
+	}
+	FILE *fp; 
+	int i = 0;
+	char line[100];
+	fp = fopen("cdhFile","r");
+	if(fp == NULL) {
+		printf("Could not open the cdhFile!");
+		fclose(fp);
+		return;
+
+	}
+
+	while((fscanf(fp, "%s", line) == 1)) {
+		addCdToHistory(line);
+	}
+	fclose(fp);
+
+}
