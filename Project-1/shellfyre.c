@@ -8,7 +8,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <dirent.h>
-const char *sysname = "shellfyre";
+#include <math.h>
+#include <fcntl.h>
+#include<sys/types.h>
 
 //Declaration of recursive fileSearch function
 void fileSearch(char *keyword, char *current_dir, int recursive, int open);
@@ -25,6 +27,12 @@ char *cdHistory[10];
 int cdCount = 0;
 //Path to directory in which shellfyre exist
 char pathToShellfyre[512];
+
+//Flags for status of module and crontab job
+int module_open = 0;
+int has_crontab = 0;
+
+const char *sysname = "shellfyre";
 
 enum return_codes
 {
@@ -388,8 +396,6 @@ int process_command(struct command_t *command)
 		}
 	}
 
-	// TODO: Implement your custom commands here
-	
 	//fileserach command
 	if(strcmp(command->name, "filesearch") == 0) {
 
@@ -526,6 +532,92 @@ int process_command(struct command_t *command)
 
 
 		}
+		return SUCCESS;
+	}
+	
+	if(strcmp(command->name, "take") == 0) {
+	
+		int r1,r2;
+		if(command->arg_count > 1) {
+			printf("take: Too many arguments.");
+			printf("Usage: take [DIRECTORY]");
+			return SUCCESS;
+		}
+		//Tokenizing the argument of take command
+		char *input = strdup(command->args[0]);
+		char *token = strtok(input, "/");
+		
+		//for each token 
+		while( token != NULL ) {
+			
+			//make directory named token
+			r1 = mkdir(token, S_IRWXU);
+			if(r1 == -1) {
+				if(errno != EEXIST) {
+
+					printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+					return SUCCESS;
+				}
+			}
+			//change directory to directory named token
+			r2 = chdir(token);
+			if (r2 == -1) {
+				printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+				return SUCCESS;
+			}
+			//and add every directory changes to cdHistory
+			else {
+			
+				char cwd[512];
+				if(getcwd(cwd,sizeof(cwd)) != NULL) {
+					addCdToHistory(cwd);
+				}
+			
+			}
+
+			token = strtok(NULL, "/");
+		}
+		return SUCCESS;
+	}
+
+
+
+	if(strcmp(command->name, "joker") == 0) {
+
+		char currentPath[100];
+
+		if(getcwd(currentPath,sizeof(currentPath)) == NULL)
+			printf("Could not get the cwd!\n");
+
+		//Change directory to store cronFile in the the same directory with shellfyre.c
+		int r1 = chdir(pathToShellfyre);
+			if (r1 == -1) 
+				printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+
+		//opening the cronFile at writing the job
+		FILE *cronFile = fopen("cronFile", "w");
+		fprintf(cronFile,"* * * * * XDG_RUNTIME_DIR=/run/user/$(id -u) /usr/bin/notify-send \"JOKE\" \"$(/snap/bin/curl https://icanhazdadjoke.com/)\"\n");
+		fclose(cronFile);
+
+
+		//calling crontab in the child with cronFile
+		char *path = "/usr/bin/crontab";
+		char *args[] = {path,"cronFile",NULL};
+
+		pid_t pid = fork();
+
+		if(pid == 0) {
+		execv(path,args);
+		}
+		else {
+			wait(NULL);
+		}
+
+		int r2 = chdir(currentPath);
+		if (r2 == -1) 
+			printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
+		
+		has_crontab = 1;
 		return SUCCESS;
 	}
 	
