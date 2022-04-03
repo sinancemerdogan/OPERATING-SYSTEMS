@@ -621,6 +621,182 @@ int process_command(struct command_t *command)
 		return SUCCESS;
 	}
 	
+	if(strcmp(command->name, "madmath") == 0) {
+		
+		if(command->arg_count < 1 ) {
+
+			printf("math :Too few arguments\n");
+			printf("usage: math <option> <number> <number>\n");
+			printf("options :sub ,sum,factor !!!!!FIND OUT THE REST!!!!!!!\n");
+		}
+		//Assigning options
+		else if(strcmp(command->args[0],"sub") == 0){
+		    
+		    if(command->args[1] == NULL || command->args[2] == NULL) {
+
+				printf("math: sub: bad usage\n");
+				printf("usage: math sub <num1> <num2>\n");
+		    }
+		    else {
+                		int num1 = atoi(command->args[1]);
+    				int num2 = atoi(command->args[2]);
+    				int sub = num1 - num2;
+    				printf("%d\n",sub);
+		    }	
+		}
+		else if(strcmp(command->args[0],"sum") == 0){
+		    
+		    if(command->args[1] == NULL || command->args[2] == NULL) {
+
+				printf("math: sum: bad usage\n");
+				printf("usage: math sum <num1> <num2>\n");
+			}
+			else {
+    		    		int num1 = atoi(command->args[1]);
+    				int num2 = atoi(command->args[2]);
+    				int sum = num1 + num2;
+    				printf("%d\n",sum);
+			}
+		}
+		else if(strcmp(command->args[0],"factor") == 0) {
+
+			int sum = 1;
+			if(command->args[1] == NULL) {
+				printf("Please provide a number!\n");
+
+			}
+			else if(command->arg_count > 2) {
+				printf("math: factor: bad usage\n");
+				printf("usage: math factor <num> \n");;
+			}
+
+			else if(command->args[1] < 0)
+        			printf("Factoriel of a negative number cannot be calculated!\n");
+
+    			else {
+        			for (int i = 1; i <= atoi(command->args[1]); ++i) {
+           				 sum *= i;
+        			}
+
+				printf("%d\n",sum);
+			}
+			
+         	}
+
+		else if(strcmp(command->args[0],"pi") == 0) {
+
+			long double pi = M_PI;	
+    			printf("%.10Lf\n", pi);
+
+		}
+		
+		else if(strcmp(command->args[0],"pow") == 0) {
+
+			if(command->args[1] == NULL || command->args[2] == NULL) {
+
+				printf("math: pow: bad usage\n");
+				printf("usage: math pow <base> <power>\n");
+			}
+			else {  int result = 1;
+    				int base = atoi(command->args[1]);
+    				int power = atoi(command->args[2]);
+    				for (power; power>0; power--){
+    
+    					result = result * base;
+    				}
+				printf("%d\n",result );
+            		}
+
+		}
+
+		else if(strcmp(command->args[0],"mod") == 0) {
+
+			if(command->args[1] == NULL || command->args[2] == NULL) {
+
+				printf("math: mod: bad usage\n");
+				printf("usage: math mod <num1> <num2>\n");
+			}
+			else {
+    		   		int num1 = atoi(command->args[1]);
+    				int num2 = atoi(command->args[2]);
+    				int mod = num2 % num1;
+    				printf("%d\n",mod);
+			}
+		}
+		
+		//Chosing the message to be displayed randomly
+		char *header,*message;
+		int num;
+		num = rand() % 11;
+		
+		switch (num) {
+		    
+		    case 1:
+		        header = "BEST REGARDS";
+		        message = "FROM YOUR MIDDLE SCHOOL MATH TEACHER";
+		        break;
+
+		    case 2:
+		        header = "Tesla Business Offer";
+		        message = "HEY DUDE, THIS IS ELON WANT U";
+		        break;
+		    
+		    case 3:
+		        header = "NASA";
+		        message = "WANNA BECOME A ASTRONAUT";
+		        break;
+		    
+		    case 4:
+		        header = "Leonhard Euler";
+		        message = "I am proud of you son!";
+		        break;
+		        
+		    case 5:
+		        header = "Abel Prize";
+		        message = "We want to give you The Abel Prize sir";
+		        break;
+		    
+		    case 6:
+		        header = "***CONGRATS***";
+		        message = "YOU ARE CHOOSEN AS GOAT MATHEMATICIAN!";
+		        break;    
+		    
+		    case 7:
+		        header = "Pythagoras";
+		        message = "Like your triangle right triangle";
+		        break; 
+		        
+		    case 8:
+		        header = "Guinness World Records";
+		        message = "NEW WORLD RECORD: The most genius mathematician is you!!!";
+		        break; 
+		    case 9:
+		        header = "***FATAL WARNING***";
+		        message = "I AM NOT A CALCULATOR, I AM A COMPUTER!!!";
+		        break; 
+		    default:
+		        header = "***FATAL WARNING***";
+		        message = "I AM NOT A CALCULATOR, I AM A COMPUTER!!!";
+		        break;   
+    		}  
+		 
+		//Displaying the message with the notify-send    		 
+		char *path = "/usr/bin/notify-send";
+		char *args[] = {path,header,message,NULL};
+		pid_t pid;
+
+		pid = fork();
+
+		if(pid == 0) {
+			execv(path,args);
+		}
+		else {
+			wait(NULL);
+		}	
+		
+		return SUCCESS;
+	}
+	
 	pid_t pid = fork();
 
 	if (pid == 0) // child
