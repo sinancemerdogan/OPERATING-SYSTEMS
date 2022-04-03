@@ -797,6 +797,63 @@ int process_command(struct command_t *command)
 		return SUCCESS;
 	}
 	
+	if(strcmp(command->name, "pstraverse") == 0) {
+
+		//module parameters
+		char PID[20] ="PID=";
+		char option[20];
+		char data[100];
+
+
+		if(command->arg_count < 2) {
+			("pstravers: Too few arguments.\n");
+			("Usage: pstraverse <PID> <-d or -b>\n");
+
+			return SUCCESS;
+		}
+
+		//assigning module paramters
+		strcat(PID,command->args[0]);
+		sprintf(option, "option=\"%s\" ", command->args[1]);
+
+
+		//if device is not open then opening or installing it
+		if(!module_open) {
+			//Path and argument resolving
+			char *path = "/usr/bin/sudo";
+			char *args[] = {path,"insmod","process_module.ko",PID,option,NULL};
+
+			pid_t pid = fork();
+
+			if(pid == 0) {
+
+			//Calling in the child
+			execv(path,args);
+
+			}
+			else {
+				wait(NULL);
+			}
+			module_open = 1;
+
+		}
+		else {
+			int fd;
+			fd = open("/dev/process_device", O_RDWR);
+
+			if(fd < 0) {
+				printf("-%s: %s\n", sysname,strerror(errno));
+				printf("Cannot open the file\n");
+			}
+		       	strcat(data,command->args[0]);
+			strcat(data, " ");
+			strcat(data, command->args[1]);	
+			write(fd,data, strlen(data) +1);
+			close(fd);
+		}
+		strcpy(data,"");
+		return SUCCESS;
+	}
 	pid_t pid = fork();
 
 	if (pid == 0) // child
