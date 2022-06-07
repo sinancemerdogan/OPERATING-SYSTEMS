@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
-
+#include <cassert>
 #include <list>
-
+#include <cstdlib>
 #include "fat.h"
 #include "fat_file.h"
+#include <unistd.h>
+#include <sys/types.h>
 
 
 /**
@@ -24,8 +26,19 @@ int mini_fat_write_in_block(FAT_FILESYSTEM *fs, const int block_id, const int bl
 
 	int written = 0;
 
-	// TODO: write in the real file.
-
+	//Open the file system file
+	FILE* fat_fd = fopen(fs->filename, "rb+");
+	if (fat_fd == NULL) {
+		perror("Cannot write block to file");
+		return false;
+	}
+	
+	//Determine seek position	
+	int position = (block_id * fs->block_size) + block_offset;
+	fseek(fat_fd, position, SEEK_SET);	
+        fwrite(buffer, size, 1, fat_fd);
+        written = size;
+	fclose(fat_fd);
 	return written;
 }
 
@@ -45,9 +58,20 @@ int mini_fat_read_in_block(FAT_FILESYSTEM *fs, const int block_id, const int blo
 
 	int read = 0;
 
-	// TODO: read from the real file.
-
+	//Open the file system file
+	FILE * fat_fd = fopen(fs->filename, "rb");
+	if (fat_fd == NULL) {
+		perror("Cannot read block to file");
+		return false;
+	}	
+	//Determine seek position
+	int position = (block_id * fs->block_size) + block_offset;
+	fseek(fat_fd, position, SEEK_SET);
+        fread(buffer,size,1, fat_fd);
+        read = size;
+	fclose(fat_fd);
 	return read;
+
 }
 
 
@@ -56,8 +80,15 @@ int mini_fat_read_in_block(FAT_FILESYSTEM *fs, const int block_id, const int blo
  * @return -1 on failure, index of block on success
  */
 int mini_fat_find_empty_block(const FAT_FILESYSTEM *fat) {
-	// TODO: find an empty block in fat and return its index.
+	// TODO: find an empty block in fat and return its index.	
+	if(!fat->block_map.empty()) {
+		for(long unsigned int i = 0; i < fat->block_map.size(); i++) {
+			if(fat->block_map[i] == EMPTY_BLOCK) {
+				return i;
+			}
+		}
 
+	}
 	return -1;
 }
 
@@ -84,7 +115,7 @@ void mini_fat_dump(const FAT_FILESYSTEM *fat) {
 	}
 	printf("\n");
 
-	for (int i=0; i<fat->files.size(); ++i) {
+	for (long unsigned int i=0; i<fat->files.size(); ++i) {
 		mini_file_dump(fat, fat->files[i]);
 	}
 }
@@ -112,7 +143,16 @@ FAT_FILESYSTEM * mini_fat_create(const char * filename, const int block_size, co
 
 	FAT_FILESYSTEM * fat = mini_fat_create_internal(filename, block_size, block_count);
 
-	// TODO: create the corresponding virtual disk file with appropriate size.
+	//Create/open the virtual disk
+	FILE* virtual_disk = fopen(filename, "wb+");
+
+	if(virtual_disk == 0) {
+		printf("Cannot create the virtual disk!\n");
+		exit(-1);
+	}
+	//Fix the size of virtual disk
+	ftruncate(fileno(virtual_disk), block_size * block_count);
+	fclose(virtual_disk);
 	return fat;
 }
 
@@ -126,26 +166,118 @@ FAT_FILESYSTEM * mini_fat_create(const char * filename, const int block_size, co
  * @return     true on success
  */
 bool mini_fat_save(const FAT_FILESYSTEM *fat) {
-	FILE * fat_fd = fopen(fat->filename, "r+");
+	//Open the file system
+	FILE * fat_fd = fopen(fat->filename, "rb+");
 	if (fat_fd == NULL) {
 		perror("Cannot save fat to file");
 		return false;
 	}
-	// TODO: save all metadata (filesystem metadata, file metadata).
+	//Check if the file system is empty	
+	if(fat->block_map.empty()) {
 
+		return false;
+	}
+	//For every metadata and file entry block convert the data to string and write it to corresponding block	
+	for(long unsigned int i = 0; i < fat->block_map.size(); i++) {
+		char buffer[1024] = "";
+		if(fat->block_map[i] == METADATA_BLOCK) {
+
+			sprintf(buffer,"%d %d ", fat->block_count, fat->block_size);
+
+			for(long unsigned int j = 0; j < fat->block_map.size(); j++) {			
+				char block = fat->block_map[j] + '0';	
+				strncat(buffer,&block, 1);
+				strcat(buffer," ");	
+			}
+			mini_fat_write_in_block((FAT_FILESYSTEM*)fat, 0, 0, strlen(buffer),buffer); 
+		}
+
+		else if(fat->block_map[i] == FILE_ENTRY_BLOCK) {
+			
+			for(long unsigned int k = 0; k < fat->files.size(); k++) {
+
+				FAT_FILE * fat_file = mini_file_find(fat, fat->files[k]->name);
+				if (!fat_file) {
+					fprintf(stderr, "File '%s' does not exist.\n", fat_file->name);
+					return false;
+				}		
+				
+				if(fat_file->metadata_block_id  == (int)i) {
+
+					sprintf(buffer, "%d %ld %s ",fat_file->size, strlen(fat_file->name), fat_file->name);
+					for (long unsigned int j=0; j<fat_file->block_ids.size(); ++j) {
+
+						char blok_id = fat_file->block_ids[j] + '0';	
+                				strncat(buffer, &blok_id,1);
+						strcat(buffer, " ");
+					}
+					mini_fat_write_in_block((FAT_FILESYSTEM*)fat, i, 0, sizeof(buffer),buffer);
+
+				}
+			}
+		}
+	}
+	fclose(fat_fd);	
 	return true;
 }
 
 FAT_FILESYSTEM * mini_fat_load(const char *filename) {
-	FILE * fat_fd = fopen(filename, "r+");
+	//Open the file system
+	FILE * fat_fd = fopen(filename, "rb+");
 	if (fat_fd == NULL) {
 		perror("Cannot load fat from file");
 		exit(-1);
 	}
-	// TODO: load all metadata (filesystem metadata, file metadata) and create filesystem.
-
 	int block_size = 1024, block_count = 10;
 	FAT_FILESYSTEM * fat = mini_fat_create_internal(filename, block_size, block_count);
 
+
+	int metadata_size_to_load = block_size;
+	char buffer[1024];
+	mini_fat_read_in_block(fat, 0, 0, metadata_size_to_load, buffer);
+
+
+	//block_size
+	char* token = strtok(buffer, " ");
+	//block_count
+	token = strtok(NULL, " ");
+
+	token = strtok(NULL, " ");
+	int index = 0;
+	while(token != NULL) {
+		fat->block_map[index] = token[0] - '0';
+		index++;
+		token = strtok(NULL, " ");
+	}
+	//For every file entry block write the data to corresponing blocks
+	for(unsigned long int i = 0; i < fat->block_map.size(); i++) {
+
+		if(fat->block_map[i] == FILE_ENTRY_BLOCK) {
+	
+			FAT_FILE* fat_file = new FAT_FILE;
+			fat_file->metadata_block_id = i;
+			mini_fat_read_in_block(fat, i, 0, fat->block_size, buffer);
+
+			//file_size
+			char* token = strtok(buffer, " ");
+			fat_file->size = atoi(token);
+
+			//name_size
+			token = strtok(NULL, " ");
+
+			//name
+			token = strtok(NULL, " ");
+			strcpy(fat_file->name, token);
+			
+			token = strtok(NULL, " ");
+			while(token != NULL) {
+				fat_file->block_ids.push_back(token[0] - '0');
+				printf("-%d\n",token[0] - '0');
+				token = strtok(NULL, " ");
+			}
+			fat->files.push_back(fat_file);	
+		}
+	}	
+	fclose(fat_fd);
 	return fat;
 }
